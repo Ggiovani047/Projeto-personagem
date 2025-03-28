@@ -1,0 +1,129 @@
+unit cPersonagem;
+
+interface
+
+uses
+  SysUtils, Classes, ZConnection, ZAbstractConnection, ZDataSet, Vcl.Dialogs;
+
+type
+  TPersonagem = class
+  private
+    ConexaoDB: TZConnection;
+    F_nome: string;
+    F_franquia: string;
+    F_ator: string;
+    F_descricao: string;
+  public
+    constructor Create(aConexao: TZConnection);
+    destructor Destroy; override;
+    function Inserir: Boolean;
+published
+    property Nome: string read F_nome write F_nome;
+    property Franquia: string read F_franquia write F_franquia;
+    property Ator: string read F_ator write F_ator;
+    property Descricao: string read F_descricao write F_descricao;
+  end;
+
+var
+oPersonagem: TPersonagem;
+
+implementation
+
+{$REGION 'contructor and descructor'}
+constructor TPersonagem.Create(aConexao: TZConnection);
+begin
+  ConexaoDB := aConexao;
+end;
+
+destructor TPersonagem.Destroy;
+begin
+
+  inherited Destroy;
+end;
+{$ENDREGION}
+
+
+{$REGION 'CRUD'}
+
+function TPersonagem.Inserir: Boolean;
+var Qry: TZQuery;
+begin
+  Try
+    Result := False;
+    Qry := TZQuery.Create(nil);
+    Qry.Connection := ConexaoDB;
+    ConexaoDB.StartTransaction;
+    Qry.SQL.Clear;
+    Qry.SQL.Add(' INSERT INTO personagens (nome, franquia, ator, descricao) '+
+                ' VALUES (:nome, :franquia, :ator, :descricao);');
+    Qry.ParamByName('nome').AsString := Self.F_nome;
+    Qry.ParamByName('franquia').AsString := Self.F_franquia;
+    Qry.ParamByName('ator').AsString := Self.F_ator;
+    Qry.ParamByName('descricao').AsString := Self.F_descricao;
+
+    try
+      Qry.ExecSQL;
+      ConexaoDB.Commit;
+      Result := True;
+    except
+    on E: Exception do begin
+    MessageDlg('Deu erro: '+ E.Message, mtError, [mbOK], 0);
+    ConexaoDB.Rollback;
+    end;
+
+    end;
+  Finally
+    if Assigned(Qry) Then
+      FreeAndNil(Qry);
+  End;
+
+
+end;
+{$ENDREGION}
+
+end.
+
+
+//------------------------------------------------------------------------------
+
+
+procedure TImportExcel.SalvaArquivoBanco;
+const
+	xlCellTypeLastCell = $0000000B;
+var planilha, sheet: OleVariant; i, UltimaLinha: Integer;
+begin
+  try
+    planilha:= CreateOleObject('Excel.Application');
+    planilha.WorkBooks.open(FExcelFile);
+    Sheet := planilha.Workbooks[ExtractFileName(FExcelFile)].WorkSheets[1];
+    Sheet.Cells.SpecialCells(xlCellTypeLastCell, EmptyParam).Activate;
+    UltimaLinha := planilha.ActiveCell.Row;
+    sheet:= planilha.WorkSheets[1];
+    oPersonagem := TPersonagem.Create(dtmConexao.ConexaoDB);
+    for i := 2 to UltimaLinha do begin
+      oPersonagem.nome      := sheet.cells[i, 1].Text;
+      oPersonagem.Franquia  := sheet.cells[i, 2].Text;
+      oPersonagem.Ator      := sheet.cells[i, 3].Text;
+      oPersonagem.Descricao := sheet.cells[i, 4].Text;
+
+      oPersonagem.Inserir;
+    end;
+
+
+  finally
+
+  end;
+
+
+//------------------------------------------------------------------------------
+
+
+
+
+CREATE TABLE personagens (
+    ID INT IDENTITY(1,1) PRIMARY KEY NOT NULL,
+    Nome VARCHAR(255) NOT NULL,
+    Franquia VARCHAR(255),
+    Ator VARCHAR(255),
+    Descricao VARCHAR(255)
+);
