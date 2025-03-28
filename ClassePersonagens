@@ -109,8 +109,8 @@ begin
       oPersonagem.Inserir;
     end;
 
-
   finally
+   oXlsx.Quit;
 
   end;
 
